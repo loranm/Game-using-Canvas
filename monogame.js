@@ -2,46 +2,31 @@
   "use strict";
   window.document.addEventListener('DOMContentLoaded', function () {
     /*****************************************************************************
-    Définition des images utilisées
-    *****************************************************************************/
+     Définition des images utilisées
+     *****************************************************************************/
     var mySpriteSheet = new Image();
+    console.log(mySpriteSheet)
     mySpriteSheet.src = "img/mySpriteSheet.png";
     /***************************************************************************
-    Définition du canvas
-    ***************************************************************************/
-
+     Définition du canvas
+     ***************************************************************************/
+    
     var requestId; //stocke l'id généré par requestAnimationFrame, on s'en sert pour gérer la pause.
     var maxTime = 7260; //temps maximum de jeu (2 minutes * 3600 ms)
-
-
+    
+    
     var canvas = document.querySelector('canvas');
     canvas.height = 720;
     canvas.width = 1000;
-
-
+    
     /***************************************************************************
-     Définition du fond du jeu + compteur de temps
+     Définition des interactions avec le jeu : demarrer, gameover et pause
      ***************************************************************************/
-    function background() {
-      var ctx = canvas.getContext("2d");
-      //Decompte du temps basé sur requestAnimationFrame
-      ctx.font = 'bold 30px sans-serif';
-      var countDownTextSize = ctx.measureText(displayCountDown);
-      var displayCountDown = parseInt((maxTime - requestId) / 60) + ' sec.  avant la fin du jeu';
-      ctx.fillStyle = "white";
-      ctx.fillText(displayCountDown, 20, canvas.height - 20);
-    };
-
-
-
-
-    /***************************************************************************
-    Définition des interactions avec le jeu : demarrer, gameover et pause
-    ***************************************************************************/
-
+    
     //Gestion de la pause
-    var gameStarted = false;
-    var paused = false;
+    var gameStarted = false,
+    gamePaused = false,
+    gameOver = false;
     //Détection des boutons sur la page html
     var startButton = document.getElementById('startButton');
     var pauseButton = document.getElementById('pauseButton');
@@ -51,11 +36,13 @@
       skill: "gainSkill",
       lost: "lost",
       win: "win"
-
+    };
+    
+    // Retourne un entier tiré au hasard
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
     }
-    var gameOver = false;
-
-
+    
     function showMessage(message) {
       putOnPause()
       var message = document.getElementById(message);
@@ -65,7 +52,7 @@
         putOnPause();
       }, 2000)
     }
-
+    
     startButton.addEventListener('click', function () {
       if (gameStarted === false) {
         gameStarted = true;
@@ -96,19 +83,19 @@
       }
       pauseButton.classList.toggle('hidden');
       maxTime = 7260 + requestId;
-      if (paused) {
+      if (gamePaused) {
         putOnPause()
       };
     })
 
     //Met le jeu en pause
-    var putOnPause = function () {
-      if (paused) {
-        paused = false;
+    function putOnPause() {
+      if (gamePaused) {
+        gamePaused = false;
         pauseButton.setAttribute('value', 'Pause');
         gameLoop();
       } else {
-        paused = true;
+        gamePaused = true;
         pauseButton.setAttribute('value', 'Reprendre');
       };
 
@@ -281,7 +268,7 @@
     /***************************************************************************
     Fonctions Constructeurs
     ***************************************************************************/
-    var Sprite = function (options) {
+    function Sprite(options) {
       this.nom = options.nom || 'item';
       this.context = options.context || canvas.getContext('2d');
       this.image = options.img || mySpriteSheet;
@@ -299,45 +286,51 @@
       this.danger = options.danger || false;
       this.bonus = options.bonus || false;
       this.pf = options.pf || false;
-
-
-      this.render = function () { //affiche l'image dans le canvas
-        this.context.drawImage(
-          this.image, //insert l'image
-          this.sx + this.sw * this.frameIndex,
-          this.sy,
-          this.sw,
-          this.sh,
-          this.dx,
-          this.dy,
-          this.dw * this.ratio,
-          this.dh * this.ratio);
-      };
-
-
     };
 
+    function render(options) {
+      canvas.getContext('2d').drawImage(mySpriteSheet, options.sx, options.sy, options.sw, options.sh, options.dx, options.dy, options.dw * options.ratio, options.dh * options.ratio)
+    }
+
+
+    function animate(options) {
+      render(options);
+      options.tickCount += 1;
+      if (options.tickCount > options.ticksPerFrame) {
+        options.tickCount = 0;
+        if (options.frameIndex < options.numberOfFrames - 1) {
+          options.frameIndex += 1;
+        } else {
+          options.frameIndex = 0;
+        };
+      };
+    }
+
+    function move(options) {
+
+    }
+
     //Fonction constructeur qui anime le sprite
-    var AnimatedSprite = function (options) {
+    function AnimatedSprite(options) {
       //propriétés liées à l'animation
-      this.tickCount = 0,
-        this.ticksPerFrame = options.ticksPerFrame || 0;
+      this.tickCount = 0;
+      this.ticksPerFrame = options.ticksPerFrame || 0;
       this.numberOfFrames = options.numberOfFrames || 1;
       this.animation = options.animation;
 
 
-      this.update = function () {
-        this.render() // anime l'image
-        this.tickCount += 1;
-        if (this.tickCount > this.ticksPerFrame) {
-          this.tickCount = 0;
-          if (this.frameIndex < this.numberOfFrames - 1) {
-            this.frameIndex += 1;
-          } else {
-            this.frameIndex = 0;
-          };
-        };
-      };
+      // this.update = function () {
+      //   // this.render() // anime l'image
+      //   this.tickCount += 1;
+      //   if (this.tickCount > this.ticksPerFrame) {
+      //     this.tickCount = 0;
+      //     if (this.frameIndex < this.numberOfFrames - 1) {
+      //       this.frameIndex += 1;
+      //     } else {
+      //       this.frameIndex = 0;
+      //     };
+      //   };
+      // };
     };
 
     //Fonction constructeur qui déplace le sprite sur le canvas
@@ -358,7 +351,7 @@
 
 
       this.translate = function (start, end, sy) {
-        this.update() //Effectue une translation de l'image du parametre start jusqu'à end. sy précise la ligne de sprite à utiliser pour l'animation du sens gauche -> droite
+        // this.update() //Effectue une translation de l'image du parametre start jusqu'à end. sy précise la ligne de sprite à utiliser pour l'animation du sens gauche -> droite
         if (start != end) {
           if (this.dx > end) {
             this.dir = 1;
@@ -379,13 +372,9 @@
 
     };
 
-    // Retourne un entier tiré au hasard
-    function getRandomInt(min, max) {
-      return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
 
     //fonction constructeur pour afficher les icones de compétences.
-    var Bonus = function (options) {
+    function BonusSprite(options) {
       this.dy = options.dy || 0;
       this.dx = options.dx || getRandomInt(0, canvas.width);
       this.numberOfFrames = options.numberOfFrames || 6;
@@ -400,7 +389,7 @@
 
 
       this.fall = function () {
-        this.update();
+        // this.update();
         if (this.moving) {
           this.tickCount += 1;
           if (this.tickCount > this.ticksPerFrame) {
@@ -424,7 +413,7 @@
 
 
     /**************************************************************************/
-    var Heros = function (options) {
+    function Heros(options) {
       this.heros = options.heros;
       this.canGoRight = false;
       this.canGoLeft = false;
@@ -737,29 +726,29 @@
     /***************************************************************************
      CHAINE DE PROTOTYPAGE
      ***************************************************************************/
-    var getSprite = function (options) {
-      return new Sprite(options);
-    };
+    // var getSprite = function (options) {
+    //   return new Sprite(options);
+    // };
 
-    var getAnimatedSprite = function (options) {
-      AnimatedSprite.prototype = getSprite(options);
-      return new AnimatedSprite(options);
-    };
+    // var getAnimatedSprite = function (options) {
+    //   AnimatedSprite.prototype = getSprite(options);
+    //   return new AnimatedSprite(options);
+    // };
 
-    var getMovingSprite = function (options) {
-      MovingSprite.prototype = getAnimatedSprite(options);
-      return new MovingSprite(options);
-    };
+    // var getMovingSprite = function (options) {
+    //   MovingSprite.prototype = getAnimatedSprite(options);
+    //   return new MovingSprite(options);
+    // };
 
-    var getBonusSprite = function (options) {
-      Bonus.prototype = getMovingSprite(options);
-      return new Bonus(options);
-    };
+    // var getBonusSprite = function (options) {
+    //   Bonus.prototype = getMovingSprite(options);
+    //   return new Bonus(options);
+    // };
 
-    var getHeros = function (options) {
-      Heros.prototype = getMovingSprite(options);
-      return new Heros(options);
-    }
+    // var getHeros = function (options) {
+    //   Heros.prototype = getMovingSprite(options);
+    //   return new Heros(options);
+    // }
 
     /***************************************************************************
      Constitution du décor (scenery)
@@ -768,49 +757,66 @@
     //fonction autoexecutante qui parcourt le tableau elements et les créer en utilisant les fonctions constructeurs correspondant à leurs options.
     (function createStage() {
       for (var i = 0; i < elements.length; i++) {
+        AnimatedSprite.prototype = new Sprite(elements[i]);
+        MovingSprite.prototype = new AnimatedSprite(elements[i]);
+        BonusSprite.prototype = new MovingSprite(elements[i])
         if (elements[i].scenery) {
-          stageElements[i] = getSprite(elements[i]);
+          stageElements.push(new Sprite(elements[i]));
         };
         if (elements[i].animation) {
-          stageElements[i] = getAnimatedSprite(elements[i]);
+          stageElements.push(new AnimatedSprite(elements[i]));
         };
         if (elements[i].moving) {
-          stageElements[i] = getMovingSprite(elements[i]);
+          stageElements.push(new MovingSprite(elements[i]));
         };
         if (elements[i].bonus) {
-          stageElements[i] = getBonusSprite(elements[i]);
+          stageElements.push(new BonusSprite(elements[i]))
         };
-        if (elements[i].heros) {
-          stageElements[i] = getHeros(elements[i]);
-        };
+        // if (elements[i].heros) {
+        //   stageElements[i] = getHeros(elements[i]);
+        // };
       };
     })();
 
-    // createStage();
+    /***************************************************************************
+         Définition du fond du jeu + compteur de temps
+         ***************************************************************************/
+    function background() {
+      var ctx = canvas.getContext("2d");
+      //Decompte du temps basé sur requestAnimationFrame
+      ctx.font = 'bold 30px sans-serif';
+      var countDownTextSize = ctx.measureText(displayCountDown);
+      var displayCountDown = parseInt((maxTime - requestId) / 60) + ' sec.  avant la fin du jeu';
+      ctx.fillStyle = "white";
+      ctx.fillText(displayCountDown, 20, canvas.height - 20);
+    };
+
 
     //displayStage parcourt le tableau stage pour afficher les éléments qui s'y trouvent.
-    var displayStage = function () {
+    function displayStage() {
+      background();
       for (var i = 0; i < stageElements.length; i++) {
-        if (stageElements[i].scenery) {
-          stageElements[i].render();
-        };
+        render(stageElements[i]);
         if (stageElements[i].animation) {
-          // options[i].render();
-          stageElements[i].update();
+          // stageElements[i].render();
         };
         if (stageElements[i].bonus) {
           // stageElements[i].render();
+          animate(stageElements[i])
           // stageElements[i].update();
-          stageElements[i].fall();
+          // stageElements[i].fall();
         };
         if (stageElements[i].moving) {
+          animate(stageElements[i])
           // stageElements[i].render();
           // stageElements[i].update();
+
+
           stageElements[i].translate(stageElements[i].moveFrom, stageElements[i].moveTo, stageElements[i].sy);
         };
       };
 
-      tim.animation();
+      // tim.animation();
     };
 
     /**************************************************************************
@@ -826,8 +832,8 @@
       numberOfFrames: 22,
       ticksPerFrame: 4,
     }
-    var tim = getHeros(heroesOptions);
-    console.warn('tim', tim)
+    // var tim = getHeros(heroesOptions);
+    // console.warn('tim', tim)
 
 
     /***************************************************************************
@@ -837,12 +843,11 @@
 
     function gameLoop() {
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-      background();
       displayStage();
 
       requestId = window.requestAnimationFrame(gameLoop);
 
-      if (paused == true) {
+      if (gamePaused == true) {
         var ctx = canvas.getContext('2d');
         ctx.fillStyle = 'rgba(0,0,0,0.5)'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -850,19 +855,19 @@
       }
 
 
-      if (tim.skills == 7) {
-        gameOver = true;
-        showMessage(message.win);
-        pauseButton.classList.toggle('hidden')
-        cancelAnimationFrame(requestId);
-      };
+      // if (tim.skills == 7) {
+      //   gameOver = true;
+      //   showMessage(message.win);
+      //   pauseButton.classList.toggle('hidden')
+      //   cancelAnimationFrame(requestId);
+      // };
 
-      if (tim.lifes == 0 || requestId == maxTime) {
-        gameOver = true;
-        showMessage(message.lost);
-        pauseButton.classList.toggle('hidden')
-        cancelAnimationFrame(requestId);
-      };
+      // if (tim.lifes == 0 || requestId == maxTime) {
+      //   gameOver = true;
+      //   showMessage(message.lost);
+      //   pauseButton.classList.toggle('hidden')
+      //   cancelAnimationFrame(requestId);
+      // };
 
     };
 
